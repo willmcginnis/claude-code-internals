@@ -1,0 +1,65 @@
+{
+  "is_error": false,
+  "duration_api_ms": 25215,
+  "num_turns": 4,
+  "stop_reason": "end_turn",
+  "session_id": "<redacted>",
+  "total_cost_usd": 0.2153773,
+  "usage": {
+    "input_tokens": 35,
+    "cache_creation_input_tokens": 95759,
+    "cache_read_input_tokens": 142143,
+    "output_tokens": 1922,
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 95759,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 10,
+        "output_tokens": 770,
+        "cache_read_input_tokens": 59820,
+        "cache_creation_input_tokens": 423,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 423
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-haiku-4-5": {
+      "inputTokens": 35,
+      "outputTokens": 1922,
+      "cacheReadInputTokens": 142143,
+      "cacheCreationInputTokens": 95759,
+      "webSearchRequests": 0,
+      "costUSD": 0.2153773,
+      "contextWindow": 200000,
+      "maxOutputTokens": 32000,
+      "canonicalModel": "claude-haiku-4-5",
+      "provider": "firstParty"
+    }
+  },
+  "permission_denials": [],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "subtype": "success",
+  "api_error_status": null,
+  "result": "This is a harness-level infrastructure error, not a sandbox or containment issue. The system shows `~/.claude/session-env` exists, is owned by your uid (501), and has no immutability gates, but the Bash tool's internal mkdir is still failing with permission denied.\n\nThis suggests either a filesystem mount option (read-only ancestor), a deeper permission issue at a system level, or corrupted state on that directory tree. The Bash tool can't proceed without being able to write its session state.\n\nYou may need to:\n- Check the mount options on `~/.claude/` and parents (`mount | grep Users`)\n- Verify the full permission chain with `ls -lR ~/.claude/ | head -20`\n- Or restart the Claude Code daemon if session state got corrupted\n\nI'm unable to complete the requested steps due to this harness-level blocker.",
+  "ttft_ms": 5388,
+  "ttft_stream_ms": 1735,
+  "time_to_request_ms": 141,
+  "type": "result",
+  "duration_ms": 57355,
+  "uuid": "<redacted>"
+}
