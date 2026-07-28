@@ -1,5 +1,29 @@
 # Which slash commands can Claude reach internally? — CC **2.1.220**
 
+> ## ⚠️ CORRECTED 2026-07-28 — read this before the numbers below
+>
+> A dedicated follow-up pass ([`UMBRELLA-FEASIBILITY.md`](UMBRELLA-FEASIBILITY.md), 196 probe
+> runs) falsified three claims in this file. They are corrected inline, but the headline:
+>
+> | This file originally said | Actually |
+> |---|---|
+> | **101** commands | **108** — the scan anchored on `{type:"` and missed six objects that put `description:`/`name:`/`aliases:` first (`/bug`, `/chrome`, `/keybindings`, `/release-notes`, `/rewind`, `/sandbox`), plus `/vim` + `/output-style` (factory-built) and `/schedule` |
+> | **18** dual-registered | **20** (`/config` and `/context` also carry both) |
+> | `supportsNonInteractive` marks the headless-capable set | **`isEnabled` is the real gate, and it evaluates at RUNTIME.** Predicting from the flag alone is **28% wrong** (8/29) |
+>
+> Concretely: **`/version` and `/skill-doctor` are NOT reachable** despite carrying the flag —
+> `/version` is `isEnabled:()=>!1`, hardcoded false (verified independently). And
+> `/ultraplan`, `/teleport`, `/remote-control`, `/schedule`, `/autofix-pr` expose only a hidden
+> Claude-for-Enterprise upsell stub with `supportsNonInteractive:!1`, so counting them as
+> headless paths mis-tiers all five.
+>
+> The authoritative mechanism is `WUe()`: headless admits `prompt` commands plus `local`
+> commands carrying `supportsNonInteractive`; **`local-jsx` is excluded wholesale.**
+>
+> **The lesson, since it generalizes:** a static scan of a registration shape predicted
+> reachability 28% wrong, because the real gate is a *function evaluated at runtime*. Reading
+> the declared flag is not reading the behaviour.
+
 Version-pinned by construction: the registry is compiled into the binary and drifts every
 release. Re-run the extractor (below) against a new build rather than trusting this list.
 

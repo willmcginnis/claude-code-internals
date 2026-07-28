@@ -1,0 +1,24 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "The assistant has written the word BANANA in its visible response."
+          }
+        ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"continue\":false,\"stopReason\":\"neutralized by peer Stop hook\"}'"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -435,6 +435,55 @@ CwdChanged  FileChanged  DirectoryAdded  MessageDisplay
 `TaskCompleted`, `FileChanged`, `SubagentStop` and `ConfigChange` all look useful for
 agent-driven control loops and are undocumented in the shipped help text.
 
+## 8. A peer `Stop` hook CANCELS a goal — correcting an over-claim (2026-07-28)
+
+An earlier revision of this file said no model-facing path reaches a goal set through
+the UI, so Claude could read one but never clear it. **That was an absence claim with no
+enumeration behind it, and it is false.**
+
+A second `Stop` hook of `type:"command"` returning `{"continue": false}` cancels the
+goal's block:
+
+```json
+{"hooks":{"Stop":[
+  {"matcher":"","hooks":[{"type":"prompt","prompt":"<condition that is NOT met>"}]},
+  {"matcher":"","hooks":[{"type":"command","command":"echo '{\"continue\":false,...}'"}]}
+]}}
+```
+
+| | `num_turns` | evaluator fired? |
+|---|---|---|
+| goal hook alone, condition unmet | 10–12 | yes, ~10× |
+| goal hook **+ peer command hook** | **2, 2, 2** (3 runs) | yes, 1× each |
+
+The evaluator still runs and still returns not-met — the goal is not bypassed, it is
+*overruled*. Three runs, per the N≥2 rule for probes against a model-in-the-loop system.
+
+### What this unlocks
+
+The static hook the CRUD design needs anyway can double as a **runtime kill switch for
+any goal, including one set with `/goal`**: have it emit `continue:false` when a
+Claude-writable control file says to. Create/update/delete of Claude's own goals plus
+suppression of UI-set ones = functional parity, reached with one pre-installed hook.
+
+### The honest limit that remains
+
+`continue:false` ends the **turn**; it does not unregister the hook. The registry entry
+survives, so bare `/goal` would presumably still report the goal as active and it would
+block again once the control file is removed. That is *suppression*, not deletion —
+functionally equivalent while armed, but not the same object state. (Inferred from the
+mechanism, not probed: verifying it needs the interactive UI.)
+
+### Why the original claim was wrong, since the shape recurs
+
+Three constraints are real: the hook registry is process-local memory (a hook is a child
+process, and macOS denies `task_for_pid` against the hardened parent); `control_request`
+needs a session started under `--input-format stream-json` by a parent owning the pipe;
+and hook JSON output has no hook-management verb. All true — and none of them add up to
+"no way," because they only rule out *reaching the registry*. The goal's **effect** was
+always reachable by other means. Ruling out one mechanism and concluding the outcome is
+impossible is the error; enumerate the outcome's routes, not one route's blockers.
+
 ## Open questions
 
 - **What terminated the not-met runs?** Both blocked runs ended after 10–12 turns with an
