@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -f goal-satisfied.marker ]; then echo '{}'; else touch goal-satisfied.marker; echo '{\"decision\":\"block\",\"reason\":\"Goal not met yet: you must write the word BANANA in your response.\"}'; fi"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "The assistant has written the word BANANA in its visible response."
+          }
+        ]
+      }
+    ]
+  }
+}
