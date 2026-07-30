@@ -2,6 +2,13 @@
 
 **Short answer: yes to both — but by different routes, and only one of them is the route you'd guess.**
 
+> **This file is the RECORD — the narrative, the probes, the numbers, what was falsified.**
+> If you only need the rules, read the reference instead:
+> `~/.claude/skills/claude-code-introspection/skills/scheduled-wakeup-state/INDEX.md` for the
+> `/loop` + cron half, and `.../skills/goal-operations/INDEX.md` for the `/goal` half.
+> Pairing per `documentation-doctrine` → `reference-vs-record`; correspondence is by section
+> position, not by name.
+
 Investigated against the locally installed build, **Claude Code 2.1.220**
 (`~/.local/share/claude/versions/2.1.220`, Mach-O arm64, Bun-compiled). Claims below are
 from the shipped binary plus live headless runs on this machine, not from docs.
@@ -369,7 +376,7 @@ Do not rely on it to bound a loop.
 The §3 route bakes a **fixed** condition into a skill file at authoring time. That is create-and-read,
 not CRUD. Round two asked whether Claude can install an *arbitrary* condition mid-session.
 
-### Mid-session file writes do NOT take effect (verified)
+### Mid-session file writes do NOT take effect (verified) — ⚠️ HEADLESS ONLY, see §9
 
 | Test | Wrote the file? | Evaluator in `modelUsage`? |
 |---|---|---|
@@ -382,7 +389,8 @@ The control is the clincher — same bytes, only the timing differs. It ran the 
 the first time: hook blocked, reason fed back, Claude worked toward the condition, wrote BANANA,
 evaluator returned met, session ended (`num_turns` 5, result *"…BANANA."*).
 
-**Hooks and skills are enumerated at session start.** The binary does contain reload machinery —
+**Hooks and skills are enumerated at session start.** *(False as a general claim — true only of
+the headless runs used to establish it. Corrected in §9.)* The binary does contain reload machinery —
 `ConfigChange` / `FileChanged` hook events exist, and there are log strings for *"Plugin hooks:
 reloading due to plugin-affecting settings change"* — but that reload path is scoped to **plugin**
 hooks and did not pick up project settings or a new skill in any run here.
@@ -405,7 +413,12 @@ MODELS: ['claude-haiku-4-5']          ← ONE model. No evaluator. Zero token co
 First Stop blocked and fed the `reason` back; Claude complied; second Stop passed. This is the
 only verified route to **runtime-variable** goal conditions, and it is free.
 
-### Two engines, different jobs
+### Two engines, different jobs — ⚠️ SUPERSEDED BY §9: there are THREE, and this table's static/dynamic split is wrong
+
+*The row "Condition | static, fixed at authoring time" and the claim above that a command hook is
+"the only verified route to runtime-variable goal conditions" are both false interactively — a
+prompt hook's condition can be rewritten mid-session because settings live-load. And 2.1.220 has a
+third type, an `agent` hook, whose judge gets TOOLS. Table kept as the record of what was believed.*
 
 | | Prompt hook (`/goal`'s engine) | Command hook |
 |---|---|---|
@@ -461,6 +474,10 @@ The evaluator still runs and still returns not-met — the goal is not bypassed,
 
 ### What this unlocks
 
+⚠️ **SUPERSEDED BY §9 — there is no "static hook the CRUD design needs anyway."** That design was a
+workaround for a limit that does not exist interactively. The `continue:false` suppression route is
+real, but it needs no pre-installed hook. Kept as the record of what was believed.
+
 The static hook the CRUD design needs anyway can double as a **runtime kill switch for
 any goal, including one set with `/goal`**: have it emit `continue:false` when a
 Claude-writable control file says to. Create/update/delete of Claude's own goals plus
@@ -484,15 +501,82 @@ and hook JSON output has no hook-management verb. All true — and none of them 
 always reachable by other means. Ruling out one mechanism and concluding the outcome is
 impossible is the error; enumerate the outcome's routes, not one route's blockers.
 
+## 9. Settings and skills LIVE-LOAD interactively — correcting §7 (2026-07-30)
+
+§7 concluded that mid-session writes never take effect and that "hooks and skills are enumerated
+at session start." **That is true of headless runs and false of interactive sessions**, which is
+the mode every real goal would be set in. Measured on CC 2.1.220 from session `bbc5e967` (box
+`~/dev/slash-goal-command-implementation-status`):
+
+| Written mid-session to `.claude/settings.local.json` | Took effect? |
+|---|---|
+| `PreToolUse` command hook | **yes** — fired on the very next tool call |
+| `Stop` command hook | **yes** — fired on the next yield |
+| `Stop` **prompt** hook, condition unmet | **yes** — blocked the stop, reason fed back, session kept working |
+| A brand-new top-level skill **directory** | **yes** — appeared in the live Skill *listing* without `/reload-skills`. **Listing visibility is NOT hook installation** — whether a mid-session skill's `hooks:` frontmatter registers is still untested |
+
+The workspace had `hasTrustDialogAccepted: false`. That is **one config key, and not the gate the
+binary consults** — permission mode, managed settings and parent-directory trust were not excluded.
+So this weakens "untrusted ⇒ no hooks" to *unproven*; it does not establish that trust is irrelevant.
+
+### Why §7 got it wrong
+
+Not a bad measurement — a bad generalisation. All four §7 negatives were single-shot
+`claude -p` runs (`experiments/dynamic-*/run.json` each show a driver model only, no evaluator).
+Headless genuinely does snapshot settings at process start. The error was reporting a
+mode-specific result as a property of the product, in a doc that never names the mode. The same
+shape as the `supportsNonInteractive` error in `UMBRELLA-FEASIBILITY.md`: **a constraint measured
+in one execution mode, generalised to all of them.** Twice in one box is a pattern worth naming.
+
+### Verify it from harness telemetry, not a side effect
+
+Each Stop writes a `system` record with `subtype: "stop_hook_summary"` to the session JSONL:
+`hookCount`, one `hookInfos` entry per hook keyed by its `statusMessage`, and any block reason in
+`hookErrors`. Observed here: `hookCount` 5 → 6 at the moment the file was written, the new entry
+named by its `statusMessage`, and the blocking record carrying `preventedContinuation: false` —
+independently confirming the June-2026 reading that a Stop-event block halts *stopping*, not
+working. `hookInfos` does **not** record the evaluator model.
+
+### The evaluator `model` field works — HEADLESSLY, n=1
+
+`model: "claude-sonnet-5"` on the prompt hook produced `claude-sonnet-5` in `modelUsage` beside
+the `claude-haiku-4-5` driver, where §4a's default produced `claude-haiku-4-5-20251001`. So the
+field is honoured, not merely accepted.
+
+**Stated with its mode, because the first draft of this very section did not.** That run was
+`claude -p --output-format json`, `num_turns: 1` — one headless observation. **Interactive rerouting
+is unverified and not verifiable from the transcript**, since `hookInfos` records the prompt text but
+not the evaluator model. Writing this as a bare "verified" was the same headless→general leap §9
+exists to correct, committed inside §9. Caught by an adversarial reviewer, not by re-reading.
+
+### What this deletes
+
+The §7 "static hook + dynamic control file" design, and the
+`/opt/agents/claude-code/home/var/goal-operations/` location it needed, were **workarounds for a
+limit that does not exist in this mode.** Goal CRUD is: create = write the hook, update = rewrite
+it, delete = remove it. No pre-installed hook, no control file, no HIL settings edit — which is
+why tasks #3/#5 of this box's session summary are withdrawn rather than completed. The reference
+(`claude-code-introspection` → `skills/goal-operations/`) has been rewritten accordingly, and the
+per-decision detail is in `~/dev/slash-goal-command-implementation-status/STATUS.md`.
+
 ## Open questions
 
-- **What terminated the not-met runs?** Both blocked runs ended after 10–12 turns with an
-  empty result rather than running to a cap. The binary has a "Prompt hook condition judged
-  impossible" branch, which is the plausible terminator, but I did not confirm that is what
-  fired — the debug logging for it never surfaced on stderr in headless mode. If you intend to
-  rely on goal loops running long, establish the real ceiling first.
-- **Does a skill-installed `Stop` hook survive `--resume`?** `/goal`'s own hook does (it is
-  restored from session state). A `skillRoot` hook's persistence across resume is untested.
+- ~~**What terminated the not-met runs?**~~ **ANSWERED 2026-07-30 — and it was already documented
+  in this estate.** The `impossible` branch is the terminator: `{"ok": false, "impossible": true}`
+  **releases** the session instead of blocking and fires `tengu_goal_failed`. The full evaluator
+  instruction is in the binary (re-verified at 2.1.220), including that *"the assistant claiming the
+  goal is impossible is evidence, not proof."* Source: a **separate June 2026 investigation box** in
+  this estate — a v2.1.175 teardown of this exact mechanism that this box never found. Its 7.9 MB
+  transcript contains zero references to it. **Search for prior boxes before probing from scratch.**
+  (The private path is recorded in this work's status doc, which is not part of the public export.)
+- **Does a skill-installed `Stop` hook survive `--resume`?** Still untested for `skillRoot` hooks.
+  Two facts now bound it: `/goal`'s own hook is rebuilt by `restoreGoalFromTranscript` walking back
+  to the last `goal_status` attachment, and a **settings-file** hook needs no restoration at all
+  because settings are re-read (§9). Only the skill-frontmatter case remains open.
+- **The background-work deferral does not cover skill-set goals.** The harness removes the goal's
+  `Stop` hook while tasks are in flight (`[goal] evaluation deferred — background work still
+  running`), but the lookup it uses skips hooks carrying a `skillRoot` — the same asymmetry that
+  makes `/goal clear` miss them. Untested, read from the binary.
 - **`SubagentStop`** appears in the same evaluator code path, with a distinct prompt ("verify
   that the agent completed the given plan"). Per-subagent completion conditions look reachable
   by the same mechanism; not explored.
